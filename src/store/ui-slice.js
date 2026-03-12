@@ -16,8 +16,6 @@ const uiSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Note: We use the string action types because importing sendCartData here
-    // would cause a circular dependency (cart-slice imports uiActions).
     builder
       .addCase('cart/sendCartData/pending', (state) => {
         state.notification = {
