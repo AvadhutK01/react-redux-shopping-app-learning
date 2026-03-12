@@ -1,7 +1,45 @@
-import { createSlice } from '@reduxjs/toolkit';
-
-import { uiActions } from './ui-slice';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { uiActions } from './ui-slice';
+
+export const sendCartData = createAsyncThunk(
+  'cart/sendCartData',
+  async (cart, { rejectWithValue }) => {
+    try {
+      const response = await axios.patch(
+        'https://firestore.googleapis.com/v1/projects/sh-p-f50d3/databases/(default)/documents/cart/cartData',
+        {
+          fields: {
+            items: {
+              arrayValue: {
+                values: cart.items.map((item) => ({
+                  mapValue: {
+                    fields: {
+                      id: { stringValue: item.id },
+                      price: { doubleValue: item.price },
+                      quantity: { integerValue: item.quantity.toString() },
+                      totalPrice: { doubleValue: item.totalPrice },
+                      name: { stringValue: item.name },
+                    },
+                  },
+                })),
+              },
+            },
+            totalQuantity: { integerValue: cart.totalQuantity.toString() },
+          },
+        }
+      );
+
+      if (response.status !== 200) {
+        throw new Error('Sending cart data failed.');
+      }
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 const cartSlice = createSlice({
   name: 'cart',
@@ -66,7 +104,6 @@ export const fetchCartData = () => {
     try {
       const cartData = await fetchData();
 
-      // Transform Firestore format back to application format
       const items = cartData.fields.items.arrayValue.values
         ? cartData.fields.items.arrayValue.values.map((item) => ({
           id: item.mapValue.fields.id.stringValue,
@@ -90,68 +127,6 @@ export const fetchCartData = () => {
           status: 'error',
           title: 'Error!',
           message: 'Fetching cart data failed!',
-        })
-      );
-    }
-  };
-};
-
-export const sendCartData = (cart) => {
-  return async (dispatch) => {
-    dispatch(
-      uiActions.showNotification({
-        status: 'pending',
-        title: 'Sending...',
-        message: 'Sending cart data!',
-      })
-    );
-
-    const sendRequest = async () => {
-      const response = await axios.patch(
-        'https://firestore.googleapis.com/v1/projects/sh-p-f50d3/databases/(default)/documents/cart/cartData',
-        {
-          fields: {
-            items: {
-              arrayValue: {
-                values: cart.items.map((item) => ({
-                  mapValue: {
-                    fields: {
-                      id: { stringValue: item.id },
-                      price: { doubleValue: item.price },
-                      quantity: { integerValue: item.quantity.toString() },
-                      totalPrice: { doubleValue: item.totalPrice },
-                      name: { stringValue: item.name },
-                    },
-                  },
-                })),
-              },
-            },
-            totalQuantity: { integerValue: cart.totalQuantity.toString() },
-          },
-        }
-      );
-
-      if (response.status !== 200) {
-        throw new Error('Sending cart data failed.');
-      }
-    };
-
-    try {
-      await sendRequest();
-
-      dispatch(
-        uiActions.showNotification({
-          status: 'success',
-          title: 'Success!',
-          message: 'Sent cart data successfully!',
-        })
-      );
-    } catch (error) {
-      dispatch(
-        uiActions.showNotification({
-          status: 'error',
-          title: 'Error!',
-          message: 'Sending cart data failed!',
         })
       );
     }
